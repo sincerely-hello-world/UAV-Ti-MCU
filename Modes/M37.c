@@ -4,14 +4,15 @@
 #include "drv_Uart2.h"
 #include <math.h>
 #include <stdint.h>
-
 #include "pid.h"
- 
 // #include "drv_I2C1.h"
 
-/*lhq如果其他文件中也有一个名为count的变量，那么它们不会相互冲突，因为每个文件中的count都是独立的，只对本文件可见。*/
-//static float pos[4];
+//            1   2   3   4   5   6   7     //只进行前5个点就降落
+int Fx[] = {  0,150,150,150,  0,  0,	0,};  //前向x+
+int Fy[] = {  0,  0,-60,-60,  0,  0,	0,};  //左边y+
+int Fz[] = {210,210,210,150,150,	0,	0,};  //上方z+  
 
+//static float pos[4];
 // static float c2_old_x;
 // static float c2_old_y;
 
@@ -130,7 +131,7 @@ static int8_t Move_to_XYLine_smoth_coll(float x, float y, float v, float detail)
 static bool Move_Z(float z, float v);											  // 改变Z位置到z;
 static bool RotateToYaw(float aim_yaw, float max_yaw_rate);
 
-static uint8_t Move_xyz(float x, float y, float z, float v); // 目标XYZ移动
+static char Move_xyz(float x, float y, float z, float v); // 目标XYZ移动
 
 static bool Huanxian(float max_x, float max_y, uint8_t use_taskid, float v); // 环线
 static bool Though_Line(float *pos, float v);								 // 穿圈
@@ -140,7 +141,7 @@ static bool Fast_Circle2(float o_x, float o_y, float r, float yaw_v, int8_t task
 
 static bool Rotate(float aim_yaw, float v_yaw); // 自旋到规定角度
 
-static bool Land(float v); // 降落仅有速度版
+unsigned char Land(float v, unsigned char flag ); // 降落仅有速度版
 
 static bool Listen(); // 聆听函数，用于聆听任务
 
@@ -248,23 +249,16 @@ int Dot_X,Dot_Y = 0;
 int Dot_X_OLD , Dot_Y_OLD = 25;
 
 void Uart3_Send( const uint8_t* data, uint16_t length );
- 
- 
 
 extern bool go_back; // 是否返回巡线状态
 
 const float STOP_DIST = 6.0f;       // 完全停止的距离阈值
 
 
-//            1   2   3   4   5   6   7 8
-int Fx[] = {  0,150,150,150,  0,  0,0,};
-int Fy[] = {  0,  0,-60,-60,  0,  0,0,};
-int Fz[] = {150,150,150,150,150,  0,0,};
-
-//            1   2   3   4   5   6   7 8
+//            1   2   3   4   5   6   7 
 //int Fx[] = {  0,150,150,150,  0,  0,0,};
 //int Fy[] = {  0,  0,-60,-60,  0,  0,0,};
-//int Fz[] = {210,210,210,150,150,  0,0,};
+//int Fz[] = {150,150,150,100,100,  0,0,};
 
 int cntt = 0;
 char ccc[2];
@@ -305,7 +299,7 @@ static void M37_Liu_MainFunc()
 		}
 	}
 	if(t265_z > 235)  { landflag = 1; }  //安全保险
-	if(landflag == 1 || t265_z > 235){ Land(40);	Mode_Inf->zt=7; }
+	if(landflag == 1 || t265_z > 235){ Land(40,1);	Mode_Inf->zt=7; }
 	
 	
 	
@@ -345,7 +339,7 @@ static void M37_Liu_MainFunc()
 							  Mode_Inf->zt = 4; // 跳转到delay
 								if (i >= 6)
 								{
-										Mode_Inf->zt = 7; // 跳转到降落
+										Mode_Inf->zt = 4; // 跳转到降落
 								}
 						}
 						break;
@@ -387,12 +381,18 @@ static void M37_Liu_MainFunc()
 				}
 				case 7:
 				{
-					Land(40);//Land(40);
+					if(Land(40,0) == 1){
+						Mode_Inf->zt=8;
+					}
 					break;
 				}
 				case 8:
 				{
-					
+					//等待降落完成
+					if( get_is_inFlight() == false )
+					{
+						 Disable_Motor();
+					}
 					break;
 				}
 			}
@@ -410,128 +410,40 @@ void maintain(){
 		float delta_x = Mode_Inf->target_x - t265_x;
 		float delta_y = Mode_Inf->target_y - t265_y;
 
-					now_volx = delta_x;
-					if (fabsf(delta_x) > STOP_DIST)
-					{
-							if (fabsf(now_volx) < 10)
-							{
-									now_volx = delta_x * 2;
-							}
-							else if (fabsf(now_volx) < 20)
-							{
-									now_volx = delta_x * 1.5;
-							}
-							else{
-								now_volx = sign_f(delta_x)*25;
-							}
-					}
-					now_voly = delta_y;
-					if (fabsf(delta_y) > STOP_DIST)
-					{
-							if (fabsf(now_voly) < 10)
-							{
-									now_voly = delta_y * 2;
-							}
-							else if (fabsf(now_voly) < 20)
-							{
-									now_voly = delta_y * 1.5;
-							}
-							else{
-									now_voly = sign_f(delta_y)*25;
-							}
-					}
-					if(landflag == 1)
-					{
-							now_volx = 0 ; now_voly = 0 ;
-					}
+		now_volx = delta_x;
+		if (fabsf(delta_x) > STOP_DIST)
+		{
+				if (fabsf(now_volx) < 20)
+				{
+						now_volx = delta_x;
+				}
+				else{
+					now_volx = sign_f(delta_x)*23;
+				}
+		}
+		now_voly = delta_y;
+		if (fabsf(delta_y) > STOP_DIST)
+		{
+				if (fabsf(now_voly) < 20)
+				{
+						now_voly = delta_y;
+				}
+				else{
+						now_voly = sign_f(delta_y)*23;
+				}
+		}
+		if(landflag == 1){ now_volx = 0 ; now_voly = 0;	}
 		Position_Control_set_TargetVelocityXY(now_volx, now_voly);
 	}
 	
 	if (Mode_Inf->height_lock == true )
 	{
-		now_volz=2 * (Mode_Inf->target_z - t265_z);
+		float delta_z = Mode_Inf->target_z - t265_z;
+		now_volz = delta_z;
 		Position_Control_set_TargetVelocityZ(now_volz);
 	}
 }
 
-
-static bool Land_g(float v)
-{
-    static unsigned char soft_land_phase = 0;  // 0: 正常降落, 1: 软停止阶段
-		static unsigned char soft_land_count = 0;
-    static unsigned int target_width = 0;  // 目标油门，范围10000停转~20000全速转动的PWM控制脉冲值
-    static unsigned int stop_width = 10000;  // 停止油门，10000为电机停止的PWM值
-    UnLock_h();
-    UnLock_position();
-    Mode_Inf->target_z = -2;
-
-    if (get_is_inFlight() == false) { //已降落 关停所有输出
-        set_inFlight_false();
-        PWM_PullDownAll();
-        soft_land_phase = 0;  // 重置阶段
-        return true;
-    }
-    // 正常降落阶段
-    if (soft_land_phase == 0) {  // 正常降落阶段
-        if (t265_z > 20.0f) {
-            if (now_volz > -v) { now_volz -= 2;  } 
-            else               { now_volz = -v;  }
-        } 
-        else if (t265_z > -20.0f) 
-        {
-            if (now_volz < -20.0f) { //限制下降速度，避免摔机
-                now_volz += 1;
-            } else {
-                now_volz = -20;
-            }
-            // 落地判断
-            if (fabsf(get_VelocityENU().z) < 7 && t265_z < 13.0f) { // 
-                unsigned int pwm1 = PWMPulseWidthGet(PWM0_BASE, PWM_OUT_1);
-                unsigned int pwm2 = PWMPulseWidthGet(PWM0_BASE, PWM_OUT_0);
-                unsigned int pwm3 = PWMPulseWidthGet(PWM0_BASE, PWM_OUT_7);
-                unsigned int pwm4 = PWMPulseWidthGet(PWM0_BASE, PWM_OUT_6);
-                // 取最大值
-								unsigned int min_pwm = pwm1;
-								if (pwm2 < min_pwm) min_pwm = pwm2;
-								if (pwm3 < min_pwm) min_pwm = pwm3;
-								if (pwm4 < min_pwm) min_pwm = pwm4;
-								target_width = min_pwm; // 使用最大的一路pwm作为起始油门
-	
-                soft_land_phase = 1; // 进入软停止阶段，不要立即PullDown
-            }
-        } else {//保险措施，避免失控，紧急刹停
-            now_volz = -50;
-            set_inFlight_false();
-            PWM_PullDownAll();
-					  pwm_disable();
-            soft_land_phase = 0;
-            return true;
-        }
-        Position_Control_set_TargetVelocityZ(now_volz);
-        now_volx = (Mode_Inf->target_x - t265_x) * 2;
-        now_voly = (Mode_Inf->target_y - t265_y) * 2;
-        Position_Control_set_TargetVelocityXY(now_volx, now_voly);
-    }   // 正常降落阶段 (soft_land_phase == 0) 
-    // 软停止阶段
-    if (soft_land_phase == 1) {  // 软停止阶段
-				set_inFlight_false();
-        if (target_width <= stop_width) {  // 最低idle值 = 10000 // 检查是否达到最低
-            target_width = stop_width;
-            set_inFlight_false();
-            PWM_PullDownAll();   // 最终拉低,停机
-					  PWM_PulseWidthSet_All(stop_width - 100);
-						soft_land_count = 0; // 重置变量
-            soft_land_phase = 0; // 重置变量
-						pwm_disable();
-            return true;
-        }
-				// 渐进降低油门，每20ms减小一点（避免突变）
-        // 每次循环间隔20ms/ 50Hz，10000/1000 = 10
-				// 每次减15，根据您的PWM范围调整（e.g., 从20000之下减到stop_width=10000）
-		PWM_PulseWidthReduce_All(40); target_width -= 40;
-    } // 软停止阶段  (soft_land_phase == 1) 
-    return false;
-}
 /*******************************************
 函数名：Move_to_X
 作用：x移动_线性
@@ -758,9 +670,7 @@ static bool firework_fly(float x, float y, float v)
                 }
 			}
 			break;                       
-					
-					
-            
+
         }
         
     }
@@ -1250,41 +1160,24 @@ static int8_t Move_to_XYLine_smoth_coll(float x, float y, float v, float detail)
 输出参数：int8_t 返回精确程度
 封装等级：3
 *******************************************/
-static uint8_t Move_xyz(float x, float y, float z, float v)
+static char Move_xyz(float x, float y, float z, float v)
 {
-	char fanhui = 0;
-	static uint8_t l_step = 0;
-	float delta_x = x - t265_x;
-	float delta_y = y - t265_y;
-	float delta_z = z - t265_z;
-	float distance = sqrt(delta_x * delta_x + delta_y * delta_y + delta_z * delta_z);
-	
-	
-	if (distance < 9)
-	{
-		fanhui = 1;
-	}
-	else if (distance < 20)
-	{
-		fanhui = -1;
-	}
-
-	if (l_step == 0)
-	{
+		char fanhui = 0;
+		float delta_x = x - t265_x;
+		float delta_y = y - t265_y;
+		float delta_z = z - t265_z;
+		float distance = sqrt(delta_x * delta_x + delta_y * delta_y + delta_z * delta_z);
+		
 		UnLock_position();
 		UnLock_h();
 		Mode_Inf->target_x = x;
 		Mode_Inf->target_y = y;
 		Mode_Inf->target_z = z;
-		l_step++;
-	}
-	else if (l_step == 1)
-	{
-		UnLock_position();
-		UnLock_h();
-		Mode_Inf->target_x = x;
-		Mode_Inf->target_y = y;
-		Mode_Inf->target_z = z;
+		
+		if (distance < 9)
+		{
+			fanhui = 1;
+		}
 		
 		if (distance > 55)
 		{
@@ -1294,7 +1187,7 @@ static uint8_t Move_xyz(float x, float y, float z, float v)
 			float delta_vz = now_volz - v * delta_z / distance;
 
 			// X方向速度控制
-			if (fabs(delta_vx) > 22)
+			if (fabsf(delta_vx) > 22)
 			{
 				now_volx = now_volx - 20 * sign_f(delta_vx) * fabs(delta_x / distance);
 			}
@@ -1304,7 +1197,7 @@ static uint8_t Move_xyz(float x, float y, float z, float v)
 			}
 
 			// Y方向速度控制
-			if (fabs(delta_vy) > 22)
+			if (fabsf(delta_vy) > 22)
 			{
 				now_voly = now_voly - 20 * sign_f(delta_vy) * fabs(delta_y / distance);
 			}
@@ -1313,15 +1206,16 @@ static uint8_t Move_xyz(float x, float y, float z, float v)
 				now_voly = v * delta_y / distance;
 			}
 			
-			// Z方向速度控制
-			if (fabs(delta_vz) > 20)
-			{
-				now_volz = now_volz - 6 * sign_f(delta_vz) * fabs(delta_z / distance);
-			}
-			else
-			{
-				now_volz = v * delta_z / distance;
-			}
+//			// Z方向速度控制
+//			if (fabsf(delta_vz) > 20)
+//			{
+//				now_volz = now_volz - 6 * sign_f(delta_vz) * fabs(delta_z / distance);
+//			}
+//			else
+//			{
+//				now_volz = v * delta_z / distance;
+//			}
+
 		}
 		else if (distance > 10)
 		{
@@ -1331,7 +1225,7 @@ static uint8_t Move_xyz(float x, float y, float z, float v)
 			float delta_vz = now_volz - delta_z;
 			
 			// X方向速度控制
-			if (fabs(delta_vx) > 22)
+			if (fabsf(delta_vx) > 22)
 			{
 				now_volx = now_volx - 20 * sign_f(delta_vx) * fabs(delta_x / distance);
 			}
@@ -1345,7 +1239,7 @@ static uint8_t Move_xyz(float x, float y, float z, float v)
 			}
 			
 			// Y方向速度控制
-			if (fabs(delta_vy) > 22)
+			if (fabsf(delta_vy) > 22)
 			{
 				now_voly = now_voly - 20 * sign_f(delta_vy) * fabs(delta_y / distance);
 			}
@@ -1358,37 +1252,36 @@ static uint8_t Move_xyz(float x, float y, float z, float v)
 				now_voly = delta_y * 2;
 			}
 			
-			// Z方向速度控制
-			if (fabs(delta_vz) > 10)
-			{
-				now_volz = now_volz - 6 * sign_f(delta_vz) * fabs(delta_z / distance);
-			}
-			else
-			{
-				now_volz = delta_z;
-			}
-			if (fabsf(now_volz) < 10)
-			{
-				now_volz = delta_z * 2;
-			}
-
+//			// Z方向速度控制
+//			if (fabsf(delta_vz) > 10)
+//			{
+//				now_volz = now_volz - 6 * sign_f(delta_vz) * fabs(delta_z / distance);
+//			}
+//			else
+//			{
+//				now_volz = delta_z*1.5;
+//			}
 		}
+
 	else
 	{
 		// 到达目标位置
 		Mode_Inf->target_x = x;
 		Mode_Inf->target_y = y;
 		Mode_Inf->target_z = z;
-		l_step = 0;
 		Lock_position_same();
 		Lock_h_same();
 		fanhui = 2;
 	}
-		
+		//这样Z轴调控很稳定
+		if (fabsf(delta_z) > 25){
+			now_volz = now_volz + sign_f(delta_z)*3;
+			if( fabsf(now_volz) > 30){	now_volz = sign_f(delta_z)*30;			}
+		}
+		else{	now_volz = delta_z;		}
 		// 设置速度
 		Position_Control_set_TargetVelocityXY(now_volx, now_voly);
 		Position_Control_set_TargetVelocityZ(now_volz);
-	}
 
 	return fanhui;
 }
@@ -1397,138 +1290,41 @@ static uint8_t Move_xyz(float x, float y, float z, float v)
 函数名：Land
 作用：降落
 作者：Lcs
-输入参数：float v 速度
+输入参数：float v 速度, flag = 1,不进行位置精准降落，用于紧急降落/意外情况
 输出参数：bool 是否落地
 封装等级：3
 *******************************************/
-static bool Land(float v)
+unsigned char Land(float v, unsigned char flag )
 {
 	UnLock_h();
 	UnLock_position();
 	Mode_Inf->target_z = -1;
 	
-	
-	if( get_is_inFlight() == false )
+	if(  get_is_inFlight() == false ) // || ((fabsf(get_VelocityENU().z)) < 6 && t265_z < 13.0f)  
 	{
 		set_inFlight_false();
-		PWM_PullDownAll();
+		Disable_Motor();
+		now_volx = 0 ; now_voly = 0 ; now_volz = 0 ;
 		return true;
 	}
-				
 
-	
-	if ((fabsf(get_VelocityENU().z)) < 7 && t265_z < 17.0f)
-		{
-			set_inFlight_false();
-			PWM_PullDownAll();
-			return true;
-		}
-	if(landflag == 1)
+	if(flag == 1) //不进行降落坐标校准，直接降落
 	{
 			now_volx = 0 ; now_voly = 0 ;
 	}
-	else{
-				now_volx = (Mode_Inf->target_x - t265_x) * 2;
-				now_voly = (Mode_Inf->target_y - t265_y) * 2;
+	else{ //如果对降落坐标有要求
+				now_volx = (Mode_Inf->target_x - t265_x) ;
+				now_voly = (Mode_Inf->target_y - t265_y) ;
 	}
+	
+	if (t265_z > 25){	now_volz = -50;	}//根据需要，-50很快，不要小于-60会摔坏。
+	else{ now_volz = -40;} 
 
-
-	if (t265_z > 13.0f)
-	{
-		if (now_volz > -v)
-		{
-			now_volz = now_volz -2;
-		}
-
-		Position_Control_set_TargetVelocityZ(now_volz);
-		Position_Control_set_TargetVelocityXY(now_volx, now_voly);
-	}
-	else
-	{
-		if (now_volz < -20.0f)
-		{
-			now_volz = now_volz + 1;
-		}
-		else
-		{
-			now_volz = -20;
-		}
-		Position_Control_set_TargetVelocityZ(now_volz);
-		Position_Control_set_TargetVelocityXY(now_volx, now_voly);
-		if ((fabsf(get_VelocityENU().z)) < 7 && t265_z < 17.0f)
-		{
-			set_inFlight_false();
-			PWM_PullDownAll();
-			return true;
-		}
-	}
+	Position_Control_set_TargetVelocityZ(now_volz);
+	Position_Control_set_TargetVelocityXY(now_volx, now_voly);
 	return false;
 }
 
-static bool Land_emergency(float v)
-{
-	UnLock_h();
-	UnLock_position();
-	Mode_Inf->target_z = -1;
-	
-	
-	if( get_is_inFlight() == false )
-	{
-		set_inFlight_false();
-		PWM_PullDownAll();
-		return true;
-	}
-				
-
-	
-	if ((fabsf(get_VelocityENU().z)) < 7 && t265_z < 17.0f)
-		{
-			set_inFlight_false();
-			PWM_PullDownAll();
-			return true;
-		}
-	
-	now_volx = 0;
-	now_voly = 0;
-	if (t265_z > 10.0f)
-	{
-		if (now_volz > -v)
-		{
-			now_volz = now_volz -2;
-		}
-
-		Position_Control_set_TargetVelocityZ(now_volz);
-		Position_Control_set_TargetVelocityXY(now_volx, now_voly);
-	}
-	else if (t265_z > -20.0f)
-	{
-		if (now_volz < -20.0f)
-		{
-			now_volz = now_volz + 1;
-		}
-		else
-		{
-			now_volz = -20;
-		}
-		Position_Control_set_TargetVelocityZ(now_volz);
-		Position_Control_set_TargetVelocityXY(now_volx, now_voly);
-		if ((fabsf(get_VelocityENU().z)) < 7 && t265_z < 20.0f)
-		{
-			set_inFlight_false();
-			PWM_PullDownAll();
-			return true;
-		}
-	}
-	else{
-			now_volz = -50;
-			Position_Control_set_TargetVelocityZ(now_volz);
-			Position_Control_set_TargetVelocityXY(now_volx, now_voly);
-			set_inFlight_false();
-			PWM_PullDownAll();
-			return true;
-	}
-	return false;
-}
 
 static bool Landstop(float v)
 {

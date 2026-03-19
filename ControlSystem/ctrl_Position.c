@@ -105,7 +105,7 @@
 			if( Altitude_Control_Enabled == false )
 				return false;
 			if( height < 10 )
-				return false;
+				return false; 
 			if( get_is_inFlight() == true )
 				return false;
 			

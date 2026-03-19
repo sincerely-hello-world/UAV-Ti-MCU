@@ -11,15 +11,53 @@
 #include "MeasurementSystem.h"
 
 
-void pwm_disable()
-{
-    PWMGenDisable(PWM0_BASE, PWM_GEN_0);
-    PWMGenDisable(PWM0_BASE, PWM_GEN_1);
-    PWMGenDisable(PWM0_BASE, PWM_GEN_2);
-    PWMGenDisable(PWM0_BASE, PWM_GEN_3);
-}
+//void pwm_disable()
+//{
+//    PWMGenDisable(PWM0_BASE, PWM_GEN_0);
+//    PWMGenDisable(PWM0_BASE, PWM_GEN_1);
+//    PWMGenDisable(PWM0_BASE, PWM_GEN_2);
+//    PWMGenDisable(PWM0_BASE, PWM_GEN_3);
+//}
 
+#define MIN_PWM_WIDTH 10000
+#define MAX_PWM_WIDTH 20000
 
+//void PWM_PulseWidthSet_All(unsigned int width)//所有通道设置相同输出 
+//{
+//		if(width < MIN_PWM_WIDTH) {width = MIN_PWM_WIDTH;}
+//		else if(width > MAX_PWM_WIDTH) {width = MAX_PWM_WIDTH;}
+//		
+//		PWMPulseWidthSet(PWM0_BASE,PWM_OUT_1,width);//PB7
+//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_0,width);//PB6
+//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_7,width);//PD1
+//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_6,width);//PD0
+//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_5,width);//PE5
+//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_4,width);//PE4
+//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_2,width);//PB4
+//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_3,width);//PB5
+//}
+
+//void PWM_PulseWidthReduce_All(unsigned int value) //所有通道减少相同输出
+//{
+//    //  一次性读取所有通道当前PWM值
+//    unsigned int pwm1 = PWMPulseWidthGet(PWM0_BASE, PWM_OUT_1); // PB7
+//    unsigned int pwm0 = PWMPulseWidthGet(PWM0_BASE, PWM_OUT_0); // PB6
+//    unsigned int pwm7 = PWMPulseWidthGet(PWM0_BASE, PWM_OUT_7); // PD1
+//    unsigned int pwm6 = PWMPulseWidthGet(PWM0_BASE, PWM_OUT_6); // PD0
+
+//    // 计算新值，确保不低于 MIN_PWM_WIDTH
+//    // 一次性写入（逻辑上同步）
+//    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_1, (pwm1 > MIN_PWM_WIDTH + value) ? (pwm1 - value) : MIN_PWM_WIDTH);
+//    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_0, (pwm0 > MIN_PWM_WIDTH + value) ? (pwm0 - value) : MIN_PWM_WIDTH);
+//    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_7, (pwm7 > MIN_PWM_WIDTH + value) ? (pwm7 - value) : MIN_PWM_WIDTH);
+//    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_6, (pwm6 > MIN_PWM_WIDTH + value) ? (pwm6 - value) : MIN_PWM_WIDTH);
+//		//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_5,width);//PE5
+//		//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_4,width);//PE4
+//		//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_2,width);//PB4
+//		//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_3,width);//PB5
+//}
+
+//-------------------------------------
 void init_drv_PWMOut()
 {
     SysCtlPWMClockSet(SYSCTL_PWMDIV_8); // Set divider to 80M/8=10M=0.1us
@@ -72,6 +110,9 @@ void init_drv_PWMOut()
     PWM_PullDownAll();
 }
 
+
+
+
 bool flag = true;
 void PWM_Out(float out[8])
 {
@@ -95,43 +136,20 @@ void PWM_Out(float out[8])
 	}
 }
 
-#define MIN_PWM_WIDTH 10000
-#define MAX_PWM_WIDTH 20000
 
-void PWM_PulseWidthSet_All(unsigned int width)//所有通道设置相同输出 
+/* 停掉所有的pwm输出，飞机瞬间失去动力！！！*/
+void Disable_Motor()
 {
-		if(width < MIN_PWM_WIDTH) {width = MIN_PWM_WIDTH;}
-		else if(width > MAX_PWM_WIDTH) {width = MAX_PWM_WIDTH;}
-		
-		PWMPulseWidthSet(PWM0_BASE,PWM_OUT_1,width);//PB7
-    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_0,width);//PB6
-    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_7,width);//PD1
-    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_6,width);//PD0
-    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_5,width);//PE5
-    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_4,width);//PE4
-    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_2,width);//PB4
-    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_3,width);//PB5
+	 flag = false;
 }
 
-void PWM_PulseWidthReduce_All(unsigned int value) //所有通道减少相同输出
+/* 如果要二次起飞, 并且之前 Disable_PWMout， 就必须重置标志位，让电机能输出动力 */
+void Enable_Motor()
 {
-    //  一次性读取所有通道当前PWM值
-    unsigned int pwm1 = PWMPulseWidthGet(PWM0_BASE, PWM_OUT_1); // PB7
-    unsigned int pwm0 = PWMPulseWidthGet(PWM0_BASE, PWM_OUT_0); // PB6
-    unsigned int pwm7 = PWMPulseWidthGet(PWM0_BASE, PWM_OUT_7); // PD1
-    unsigned int pwm6 = PWMPulseWidthGet(PWM0_BASE, PWM_OUT_6); // PD0
-
-    // 计算新值，确保不低于 MIN_PWM_WIDTH
-    // 一次性写入（逻辑上同步）
-    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_1, (pwm1 > MIN_PWM_WIDTH + value) ? (pwm1 - value) : MIN_PWM_WIDTH);
-    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_0, (pwm0 > MIN_PWM_WIDTH + value) ? (pwm0 - value) : MIN_PWM_WIDTH);
-    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_7, (pwm7 > MIN_PWM_WIDTH + value) ? (pwm7 - value) : MIN_PWM_WIDTH);
-    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_6, (pwm6 > MIN_PWM_WIDTH + value) ? (pwm6 - value) : MIN_PWM_WIDTH);
-		//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_5,width);//PE5
-		//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_4,width);//PE4
-		//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_2,width);//PB4
-		//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_3,width);//PB5
+	 flag = true;
 }
+
+
 
 void PWM_PullDownAll() //停转
 {
