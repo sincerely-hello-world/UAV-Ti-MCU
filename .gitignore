@@ -1,5 +1,5 @@
 # dot files
-/.vscode/
+/.vscode/*
 !/.vscode/settings.json
 
 /.settings
