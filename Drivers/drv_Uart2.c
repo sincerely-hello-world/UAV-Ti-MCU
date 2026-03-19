@@ -240,7 +240,6 @@ static void UART2_Listen(char data)
              detect_x = (44 - task_info[0]) * 1.0 * ((task_info[1] - 48) * 100 + (task_info[2] - 48) * 10 + (task_info[3] - 48) * 1 + (task_info[4] - 48) * 0.1 + (task_info[5] - 48) * 0.01);       // 带符号的数据字符串与字符转换
              detect_y = (44 - task_info[6]) * 1.0 * ((task_info[7] - 48) * 100 + (task_info[8] - 48) * 10 + (task_info[9] - 48) * 1 + (task_info[10] - 48) * 0.1 + (task_info[11] - 48) * 0.01);     // 带符号的数据字符与字符串转换
              detect_z = (44 - task_info[12]) * 1.0 * ((task_info[13] - 48) * 100 + (task_info[14] - 48) * 10 + (task_info[15] - 48) * 1 + (task_info[16] - 48) * 0.1 + (task_info[17] - 48) * 0.01); // 带符号的数据字符与字符串转换
-						 gofly=1;
         } 
 //				cnt_2++;
 //				if(cnt_2 == 5)
@@ -251,6 +250,7 @@ static void UART2_Listen(char data)
         listen_long++;
         if (listen_long == LISTEN_LEN)
         {
+						gofly=1;
             listen_long = 0;
             listen_lock = 1;
         }

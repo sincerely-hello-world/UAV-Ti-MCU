@@ -16,6 +16,8 @@ extern float help_fire[6];
 extern unsigned char landflag;
 extern unsigned char hoverflag;
 extern unsigned char takeoffflag;
+
+extern int gofly;
 extern float detect_x,detect_y,detect_z;
 
 

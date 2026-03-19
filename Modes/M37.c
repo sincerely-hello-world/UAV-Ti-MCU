@@ -221,11 +221,11 @@ extern int taskid;
 #define map_BodyHeading2ENU_x( body_x , body_y , Yaw_sin , Yaw_cos ) ( body_x*Yaw_cos - body_y*Yaw_sin )
 #define map_BodyHeading2ENU_y( body_x , body_y , Yaw_sin , Yaw_cos ) ( body_x*Yaw_sin + body_y*Yaw_cos )
 
-extern float detect_x,detect_y,detect_z;
-extern int gofly;
+//extern float detect_x,detect_y,detect_z;
+//extern int gofly;
 extern int backfly;
-extern int points[50][2];
-extern int point_count;
+//extern int points[50][2];
+//extern int point_count;
 int mark=1;
 int rescue_flag=0;
 static int cs=0;
@@ -259,7 +259,7 @@ const float STOP_DIST = 6.0f;       // 完全停止的距离阈值
 //            1   2   3   4   5   6   7 8
 int Fx[] = {  0,150,150,150,  0,  0,0,};
 int Fy[] = {  0,  0,-60,-60,  0,  0,0,};
-int Fz[] = {100,100,100,100,100,  0,0,};
+int Fz[] = {150,150,150,150,150,  0,0,};
 
 //            1   2   3   4   5   6   7 8
 //int Fx[] = {  0,150,150,150,  0,  0,0,};
@@ -267,14 +267,14 @@ int Fz[] = {100,100,100,100,100,  0,0,};
 //int Fz[] = {210,210,210,150,150,  0,0,};
 
 int cntt = 0;
-char ccc[1];
+char ccc[2];
 static void M37_Liu_MainFunc()
 {
 	++cntt;
 	if(cntt >= 120)
 	{		
 			cntt=0;
-			ccc[1] = Mode_Inf->zt +'0';
+			ccc[0] = Mode_Inf->zt +'0';
 			Uart2_Send(ccc ,1 );
 			Uart7_Send("mode7",5);
 	}
@@ -304,9 +304,12 @@ static void M37_Liu_MainFunc()
 			}
 		}
 	}
-	if(t265_z > 235)  { landflag = 1; }
-
+	if(t265_z > 235)  { landflag = 1; }  //安全保险
 	if(landflag == 1 || t265_z > 235){ Land(40);	Mode_Inf->zt=7; }
+	
+	
+	
+
 	
 	else if( Mode_Inf->start_Lock == true)
 	{
@@ -321,13 +324,13 @@ static void M37_Liu_MainFunc()
 				}
 				case 1:             //起飞部分
 				{
-					Takeoff_h(HEIGHT, 40);
+					if(1 <= Takeoff_h(HEIGHT, 40) ) { Mode_Inf->zt = 2;}
 					break;
 				}
 				case 2:
-				{ // 悬停3s 然后降落
+				{ // 悬停3s 然后 执行任务
 						Mode_Inf->delay_count++;
-						if (150 < Mode_Inf->delay_count) // 悬停3s = 3000ms = 20ms * 150
+						if (100 < Mode_Inf->delay_count) // 悬停2s = 2000ms = 20ms * 100
 						{
 								Mode_Inf->delay_count = 0; // 清零计数
 								Mode_Inf->zt = 3;          // 跳转到降落
@@ -348,9 +351,9 @@ static void M37_Liu_MainFunc()
 						break;
 				 }
 				case 4:{	
-						// 悬停2s 然后降落
+						// 悬停2s  
 						Mode_Inf->delay_count++;
-						if (100 < Mode_Inf->delay_count) // 悬停3s = 3000ms = 20ms * 150
+						if (100 < Mode_Inf->delay_count) // 悬停2s = 2000ms = 20ms * 1000
 						{
 								Mode_Inf->delay_count = 0; // 清零计数
 								Mode_Inf->zt = 3;          // 跳转到降落
@@ -360,20 +363,20 @@ static void M37_Liu_MainFunc()
 				case 5:              
 				{
 						Uart2_Send("mode5",strlen("mode5"));
-						Mode_Inf->target_x = detect_x;
-						Mode_Inf->target_y = detect_y;
-						Mode_Inf->target_z = detect_z;
-					
+						if(gofly == 1)
+						{
+								Mode_Inf->target_x = detect_x;
+								Mode_Inf->target_y = detect_y;
+								Mode_Inf->target_z = detect_z;
+						}
 						if( Move_xyz(Mode_Inf->target_x,Mode_Inf->target_y,Mode_Inf->target_z,25) < 0)
 						{
 								Uart2_Send("Gdoing",6);
-								if( landflag == 1  ) { Mode_Inf->zt = 7; }
 						}
 						else{
 								Uart2_Send("Gdone",5);
 						}
 						break;
-					break;
 				}
 				case 6:                     //飞回原点
 				{
@@ -384,7 +387,7 @@ static void M37_Liu_MainFunc()
 				}
 				case 7:
 				{
-					Land_g(40);//Land(40);
+					Land(40);//Land(40);
 					break;
 				}
 				case 8:
@@ -437,6 +440,10 @@ void maintain(){
 									now_voly = sign_f(delta_y)*25;
 							}
 					}
+					if(landflag == 1)
+					{
+							now_volx = 0 ; now_voly = 0 ;
+					}
 		Position_Control_set_TargetVelocityXY(now_volx, now_voly);
 	}
 	
@@ -446,6 +453,7 @@ void maintain(){
 		Position_Control_set_TargetVelocityZ(now_volz);
 	}
 }
+
 
 static bool Land_g(float v)
 {
@@ -520,7 +528,7 @@ static bool Land_g(float v)
 				// 渐进降低油门，每20ms减小一点（避免突变）
         // 每次循环间隔20ms/ 50Hz，10000/1000 = 10
 				// 每次减15，根据您的PWM范围调整（e.g., 从20000之下减到stop_width=10000）
-				PWM_PulseWidthReduce_All(20); target_width -= 20;
+		PWM_PulseWidthReduce_All(40); target_width -= 40;
     } // 软停止阶段  (soft_land_phase == 1) 
     return false;
 }
@@ -707,7 +715,7 @@ static bool rescue_fly(float _rescue_x, float _rescue_y, float _rescue_z, float 
         
             
         
-         case 2:
+        case 2:
         {
             uint8_t look = Move_xyz(mark_x, mark_y, HEIGHT, v);
 			if (look == 2)
@@ -1308,7 +1316,7 @@ static uint8_t Move_xyz(float x, float y, float z, float v)
 			// Z方向速度控制
 			if (fabs(delta_vz) > 20)
 			{
-				now_volz = now_volz - 8 * sign_f(delta_vz) * fabs(delta_z / distance);
+				now_volz = now_volz - 6 * sign_f(delta_vz) * fabs(delta_z / distance);
 			}
 			else
 			{
@@ -1353,7 +1361,7 @@ static uint8_t Move_xyz(float x, float y, float z, float v)
 			// Z方向速度控制
 			if (fabs(delta_vz) > 10)
 			{
-				now_volz = now_volz - 8 * sign_f(delta_vz) * fabs(delta_z / distance);
+				now_volz = now_volz - 6 * sign_f(delta_vz) * fabs(delta_z / distance);
 			}
 			else
 			{
@@ -1361,7 +1369,7 @@ static uint8_t Move_xyz(float x, float y, float z, float v)
 			}
 			if (fabsf(now_volz) < 10)
 			{
-				now_volz = delta_z * 2.5;
+				now_volz = delta_z * 2;
 			}
 
 		}
@@ -1407,9 +1415,81 @@ static bool Land(float v)
 		return true;
 	}
 				
-	now_volx = (Mode_Inf->target_x - t265_x) * 2;
-	now_voly = (Mode_Inf->target_y - t265_y) * 2;
 
+	
+	if ((fabsf(get_VelocityENU().z)) < 7 && t265_z < 17.0f)
+		{
+			set_inFlight_false();
+			PWM_PullDownAll();
+			return true;
+		}
+	if(landflag == 1)
+	{
+			now_volx = 0 ; now_voly = 0 ;
+	}
+	else{
+				now_volx = (Mode_Inf->target_x - t265_x) * 2;
+				now_voly = (Mode_Inf->target_y - t265_y) * 2;
+	}
+
+
+	if (t265_z > 13.0f)
+	{
+		if (now_volz > -v)
+		{
+			now_volz = now_volz -2;
+		}
+
+		Position_Control_set_TargetVelocityZ(now_volz);
+		Position_Control_set_TargetVelocityXY(now_volx, now_voly);
+	}
+	else
+	{
+		if (now_volz < -20.0f)
+		{
+			now_volz = now_volz + 1;
+		}
+		else
+		{
+			now_volz = -20;
+		}
+		Position_Control_set_TargetVelocityZ(now_volz);
+		Position_Control_set_TargetVelocityXY(now_volx, now_voly);
+		if ((fabsf(get_VelocityENU().z)) < 7 && t265_z < 17.0f)
+		{
+			set_inFlight_false();
+			PWM_PullDownAll();
+			return true;
+		}
+	}
+	return false;
+}
+
+static bool Land_emergency(float v)
+{
+	UnLock_h();
+	UnLock_position();
+	Mode_Inf->target_z = -1;
+	
+	
+	if( get_is_inFlight() == false )
+	{
+		set_inFlight_false();
+		PWM_PullDownAll();
+		return true;
+	}
+				
+
+	
+	if ((fabsf(get_VelocityENU().z)) < 7 && t265_z < 17.0f)
+		{
+			set_inFlight_false();
+			PWM_PullDownAll();
+			return true;
+		}
+	
+	now_volx = 0;
+	now_voly = 0;
 	if (t265_z > 10.0f)
 	{
 		if (now_volz > -v)
@@ -1432,7 +1512,7 @@ static bool Land(float v)
 		}
 		Position_Control_set_TargetVelocityZ(now_volz);
 		Position_Control_set_TargetVelocityXY(now_volx, now_voly);
-		if ((fabsf(get_VelocityENU().z)) < 5 && t265_z < 20.0f)
+		if ((fabsf(get_VelocityENU().z)) < 7 && t265_z < 20.0f)
 		{
 			set_inFlight_false();
 			PWM_PullDownAll();
@@ -1447,7 +1527,6 @@ static bool Land(float v)
 			PWM_PullDownAll();
 			return true;
 	}
-
 	return false;
 }
 
@@ -2067,8 +2146,8 @@ static bool Takeoff_h(float height, int v)
 	    }
 	    else if(t265_z < height - 5){
 		    float now_hd = height - t265_z;
-//				now_volz = 4.0 * now_hd / 3.0;
-				now_volz = 3.0 * now_hd;
+				now_volz = 4.0 * now_hd / 3.0;
+//				now_volz = 3.0 * now_hd;
 		    Position_Control_set_TargetVelocityXY(now_volx, now_voly);
 				Position_Control_set_TargetVelocityZ(now_volz);
 	    }	
