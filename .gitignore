@@ -1,5 +1,7 @@
 # dot files
 /.vscode/
+!/.vscode/settings.json
+
 /.settings
 /.eide
 /.eide.usr.ctx.json

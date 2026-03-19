@@ -310,16 +310,6 @@ static void M37_Liu_MainFunc()
 	
 	else if( Mode_Inf->start_Lock == true)
 	{
-		Mode_Inf->count++;
-		if (Mode_Inf->count < 150)
-		{
-			Led_setSignal(LED_signal_success); // 警告警告，我要起飞了！
-		}
-		else if (Mode_Inf->count == 150) // 600除以50=12,12s之后起飞   3*50=150
-		{
-			ALL_Enable();
-			Led_setSignal(LED_signal_null);
-		}
 		switch (Mode_Inf->zt)
 		{   
 				case 0:
