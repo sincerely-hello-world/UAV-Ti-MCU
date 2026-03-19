@@ -1,0 +1,274 @@
+#include "DebugComm.h"
+#include "STS.h"
+#include "drv_GPS.h"
+#include "Sensors.h"
+#include "drv_USB.h"
+#include "MeasurementSystem.h"
+#include "drv_Uart2.h"
+#include "mavlink.h"
+#include "Commulink.h"
+#include "drv_Uart3.h"
+
+static void debug_server( unsigned int Task_ID );
+void init_Debug()
+{
+	STS_Add_Task( STS_Task_Trigger_Mode_RoughTime , 0.05f , 0 , debug_server );
+}
+
+float debug_test[10];
+
+static void debug_server( unsigned int Task_ID )
+{
+	mavlink_message_t msg_sd;
+	
+	uint8_t port_id = 1;
+	const Port* port = get_Port( port_id );
+	
+//	static uint8_t hb_counter= 0 ;
+//	if( ++hb_counter >= 20 )
+//	{
+//		hb_counter = 0;
+//		mavlink_msg_heartbeat_pack_chan( 
+//			1 ,	//system id
+//			MAV_COMP_ID_AUTOPILOT1 ,	//component id
+//			2	,	//chan
+//			&msg_sd,
+//			MAV_TYPE_QUADROTOR ,	//type
+//			MAV_AUTOPILOT_GENERIC ,	//autopilot
+//			MAV_MODE_PREFLIGHT ,	//base mode
+//			0xffff ,	//custom mode
+//			MAV_STATE_STANDBY	//sys status
+//		);
+//		mavlink_msg_to_send_buffer(Uart3_Send, &msg_sd);
+//		
+//		mavlink_msg_gps_raw_int_pack_chan( 
+//			1 ,	//system id
+//			MAV_COMP_ID_AUTOPILOT1 ,	//component id
+//			2	,	//chan
+//			&msg_sd,
+//			get_System_Run_Time()*1e6 ,	//usec
+//			3 ,	//fixtype
+//			1131234567 ,	//lat
+//			231234567 ,	//lon
+//			10 ,	//alt
+//			0 ,	//eph
+//			0 ,	//epv
+//			0 ,	//vel
+//			0 ,	//cog
+//			0 ,	//satellites_visible
+//			0 ,	//alt_ellipsoid
+//			GethAcc() ,	//h_acc
+//			0 ,	//v_acc
+//			0 ,	//vel_acc
+//			0  //hdg_acc
+//		);
+//		mavlink_msg_to_send_buffer(Uart3_Send, &msg_sd);
+//		
+//		mavlink_msg_global_position_int_pack_chan( 
+//			1 ,	//system id
+//			MAV_COMP_ID_AUTOPILOT1 ,	//component id
+//			2	,	//chan
+//			&msg_sd,
+//			get_System_Run_Time()*1e6 ,	//usec
+//			3 ,	//fixtype
+//			1131234567 ,	//lat
+//			231234567 ,	//lon
+//			10 ,	//relative_alt
+//			0 ,	//vx
+//			0 ,	//vy
+//			0 ,	//vz
+//			0  //hdg
+//		);
+//		mavlink_msg_to_send_buffer(Uart3_Send, &msg_sd);
+//	}
+//	Quaternion airframe_quat = get_Airframe_attitude();
+//	vector3_float angular_rate = get_AngularRateCtrl();
+//	
+//	mavlink_msg_attitude_pack_chan( 
+//		1 ,	//system id
+//		MAV_COMP_ID_AUTOPILOT1 ,	//component id
+//		2 , 	//chan
+//		&msg_sd ,
+//		get_System_Run_Time() * 1000 , 	//boot ms
+//		Quaternion_getRoll( airframe_quat ) ,
+//		Quaternion_getPitch( airframe_quat ) ,
+//		Quaternion_getYaw( airframe_quat ) ,
+//		angular_rate.x , 
+//		angular_rate.y ,
+//		angular_rate.z );
+//	mavlink_msg_to_send_buffer(Uart3_Send, &msg_sd);
+	
+	if( port->write )
+	{
+		float Yaw = Quaternion_getYaw( get_Airframe_attitude() );
+		float Yaw_sin , Yaw_cos;
+		arm_sin_cos_f32( rad2degree(Yaw) , &Yaw_sin , &Yaw_cos );
+		
+		float ultra_height;
+		bool ultra_height_available = get_Estimated_Sensor_Position_z( &ultra_height , default_ultrasonic_sensor_index );
+		mavlink_msg_debug_vect_pack_chan( 
+			1 ,	//system id
+			MAV_COMP_ID_AUTOPILOT1 ,	//component id
+			port_id , 	//chan
+			&msg_sd ,
+			"baro" ,	//name
+			get_System_Run_Time() * 1e6 , 	//boot ms
+			debug_test[0] ,
+			debug_test[1] ,
+			GetPositionSensor( internal_baro_sensor_index )->position.z * 0.01f - 86 );
+		mavlink_msg_to_send_buffer(port->write, &msg_sd);
+		
+		mavlink_msg_debug_vect_pack_chan( 
+			1 ,	//system id
+			MAV_COMP_ID_AUTOPILOT1 ,	//component id
+			port_id , 	//chan
+			&msg_sd ,
+			"GuangLiu" ,	//name
+			get_System_Run_Time() * 1e6 , 	//boot ms
+			GetPositionSensor(default_optical_flow_index)->velocity.x,//debug_test[2] ,
+			GetPositionSensor(default_optical_flow_index)->velocity.y,//debug_test[3] ,
+			GetPositionSensor(default_laser_sensor_index)->position.z*0.01f );
+		mavlink_msg_to_send_buffer(port->write, &msg_sd);
+		
+		mavlink_msg_debug_vect_pack_chan( 
+			1 ,	//system id
+			MAV_COMP_ID_AUTOPILOT1 ,	//component id
+			port_id , 	//chan
+			&msg_sd ,
+			"Mag" ,	//name
+			get_System_Run_Time() * 1e6 , 	//boot ms
+			GetMagnetometer(2)->data.x ,
+			GetMagnetometer(2)->data.y ,
+			GetMagnetometer(2)->data.z );
+		mavlink_msg_to_send_buffer(port->write, &msg_sd);
+		
+		mavlink_msg_debug_vect_pack_chan( 
+			1 ,	//system id
+			MAV_COMP_ID_AUTOPILOT1 ,	//component id
+			port_id , 	//chan
+			&msg_sd ,
+			"GPS" ,	//name
+			get_System_Run_Time() * 1e6 , 	//boot ms
+			GethAcc() ,
+			0 ,
+			0 );
+		mavlink_msg_to_send_buffer(port->write, &msg_sd);
+	}
+	
+//	unsigned char checksum=0;
+//	uint8_t buf[30];
+//	int i = 0;
+//	signed short temp;
+//	
+//		buf[i] = 0xaa;
+//		checksum += buf[i++];
+//		buf[i] = 0xaa;
+//		checksum += buf[i++];
+//		buf[i] = 0x02;
+//		checksum += buf[i++];
+//		buf[i] = 18;
+//		checksum += buf[i++];
+//		
+//		temp = GetPositionSensor( default_optical_flow_index )->velocity.x;
+//		buf[i] = temp >> 8;
+//		checksum += buf[i++];
+//		buf[i] = temp;
+//		checksum += buf[i++];
+//		
+//		//temp = debug_test[5];	
+//		float h = 0;
+//		//get_Estimated_Sensor_Position_z( &h  , default_ultrasonic_sensor_index );
+//		temp = GetPositionSensor( default_optical_flow_index )->velocity.y;
+//		buf[i] = temp >> 8;
+//		checksum += buf[i++];
+//		buf[i] = temp;
+//		checksum += buf[i++];
+//		
+//		temp = debug_test[6];
+//		buf[i] = temp >> 8;
+//		checksum += buf[i++];
+//		buf[i] = temp;
+//		checksum += buf[i++];
+//		
+//		temp = debug_test[7];
+//		buf[i] = temp >> 8;
+//		checksum += buf[i++];
+//		buf[i] = temp;
+//		checksum += buf[i++];
+//		
+//		temp = debug_test[8];
+//		buf[i] = temp >> 8;
+//		checksum += buf[i++];
+//		buf[i] = temp;
+//		checksum += buf[i++];
+//		
+//		//temp = debug_test[9];
+//		temp = get_Position().x;
+//		buf[i] = temp >> 8;
+//		checksum += buf[i++];
+//		buf[i] = temp;
+//		checksum += buf[i++];
+//		
+//		temp = get_Position().y;
+//		buf[i] = temp >> 8;
+//		checksum += buf[i++];
+//		buf[i] = temp;
+//		checksum += buf[i++];
+//		
+//		float Yaw = Quaternion_getYaw( get_Airframe_attitude() );
+//		float Yaw_sin , Yaw_cos;
+//		arm_sin_cos_f32( rad2degree(Yaw) , &Yaw_sin , &Yaw_cos );
+//		
+//		//temp = get_VelocityENU().z;
+//		temp = map_ENU2BodyHeading_x( get_VelocityENU().x , get_VelocityENU().y , Yaw_sin , Yaw_cos  );
+//		buf[i] = temp >> 8;
+//		checksum += buf[i++];
+//		buf[i] = temp;
+//		checksum += buf[i++];
+//				
+//		temp = map_ENU2BodyHeading_y( get_VelocityENU().x , get_VelocityENU().y , Yaw_sin , Yaw_cos  );
+//		//temp = get_Position().z;
+//		//temp = rad2degree( get_AngularRateCtrl().y );
+//		buf[i] = temp >> 8;
+//		checksum += buf[i++];
+//		buf[i] = temp;
+//		checksum += buf[i++];
+//		
+//		buf[i++] = checksum;
+//		write_UsbUart( buf , i );
+//		Uart2_Send( buf , i );
+//	/*acc gyro mag*/
+//	
+//	i = 0;
+//	checksum = 0;
+//	buf[i] = 0xaa;
+//	checksum += buf[i++];
+//	buf[i] = 0xaa;
+//	checksum += buf[i++];
+//	buf[i] = 0x01;
+//	checksum += buf[i++];
+//	buf[i] = 6;
+//	checksum += buf[i++];
+//	
+//	temp = debug_test[0]*5729.578f;
+//	buf[i] = temp >> 8;
+//	checksum += buf[i++];
+//	buf[i] = temp;
+//	checksum += buf[i++];
+//	
+//	temp = debug_test[1]*5729.578f;
+//	buf[i] = temp >> 8;
+//	checksum += buf[i++];
+//	buf[i] = temp;
+//	checksum += buf[i++];
+//	
+//	temp = debug_test[2]*5729.578f;
+//	buf[i] = temp >> 8;
+//	checksum += buf[i++];
+//	buf[i] = temp;
+//	checksum += buf[i++];
+//	
+//	buf[i++] = checksum;
+//	write_UsbUart( buf , i );
+//	Uart2_Send( buf , i );
+}
