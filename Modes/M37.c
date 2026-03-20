@@ -339,7 +339,7 @@ static void M37_Liu_MainFunc()
 							  Mode_Inf->zt = 4; // 跳转到delay
 								if (i >= 6)
 								{
-										Mode_Inf->zt = 4; // 跳转到降落
+										Mode_Inf->zt = 7; // 跳转到降落
 								}
 						}
 						break;
