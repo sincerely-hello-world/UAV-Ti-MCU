@@ -149,6 +149,11 @@ void Enable_Motor()
 	 flag = true;
 }
 
+unsigned char get_Motor_status()
+{
+	 return  flag;
+}
+
 
 
 void PWM_PullDownAll() //ͣת

@@ -15,4 +15,7 @@ void Disable_Motor();
 /* 如果要二次起飞, 并且之前 Disable_PWMout， 就必须重置标志位，让飞机能输出动力 */
 void Enable_Motor();
 
+unsigned char get_Motor_status();
+
+
  

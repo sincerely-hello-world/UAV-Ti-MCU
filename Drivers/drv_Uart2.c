@@ -222,7 +222,7 @@ float detect_x=0,detect_y=0,detect_z=0;
 #define LandFlag 0x53
 #define HoverFlag 0x54
 unsigned char landflag=0;
-unsigned char hoverflag=0;
+//unsigned char hoverflag=0;
 unsigned char takeoffflag=0;
 
 unsigned char  cnt_2=0;
@@ -251,6 +251,7 @@ static void UART2_Listen(char data)
         if (listen_long == LISTEN_LEN)
         {
 						gofly=1;
+						Uart2_Send(task_info,18);
             listen_long = 0;
             listen_lock = 1;
         }
@@ -270,7 +271,7 @@ static void UART2_Listen(char data)
 			landflag =1;
 			Uart2_Send("Landok",6);
 	}
-	else if(think_listen == HoverFlag){ // MCU uart2 - Linux uart4
-			hoverflag =1;
-	}
+//	else if(think_listen == HoverFlag){ // MCU uart2 - Linux uart4
+//			hoverflag =1;
+//	}
 }
