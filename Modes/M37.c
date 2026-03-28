@@ -8,14 +8,14 @@
 // #include "drv_I2C1.h"
 
 //            1   2   3   4   5   6   7     //只进行前5个点就降落
+float Fx[] = {  0,115,115,115,  0,  0,	0,};  //前向x+
+float Fy[] = {  0,  0,-60,-60,  0,  0,	0,};  //左边y+
+float Fz[] = {210,210,210,150,150,	0,	0,};  //上方z+  
+
+////            1   2   3   4   5   6   7     //只进行前5个点就降落
 //int Fx[] = {  0,150,150,150,  0,  0,	0,};  //前向x+
 //int Fy[] = {  0,  0,-60,-60,  0,  0,	0,};  //左边y+
-//int Fz[] = {210,210,210,150,150,	0,	0,};  //上方z+  
-
-//            1   2   3   4   5   6   7     //只进行前5个点就降落
-int Fx[] = {  0,150,150,150,  0,  0,	0,};  //前向x+
-int Fy[] = {  0,  0,-60,-60,  0,  0,	0,};  //左边y+
-int Fz[] = {150,150,150,100,100,	0,	0,};  //上方z+  
+//int Fz[] = {150,150,150,100,100,	0,	0,};  //上方z+  
 
 //static float pos[4];
 // static float c2_old_x;
@@ -279,7 +279,7 @@ char ccc[2];
 
 static void M37_Liu_MainFunc()
 {
-	
+	static uint8_t i=0;
 	//current_pos = get_Position();
 	++cntt;
 	if(cntt >= 25)
@@ -313,9 +313,12 @@ static void M37_Liu_MainFunc()
 //					Mode_Inf->zt = 0;
 //			}//end if 再飞许可
 	}
+	
+	if(gofly == 1) { Mode_Inf->zt = 5; }
+	
 	if(t265_z > 235)  { landflag = 1; }  //安全保险
 	if(landflag == 1 || t265_z > 235){ Land(50,1);	Mode_Inf->Flying_flag =false; Mode_Inf->zt=8; }//紧急降落后，不允许再次起飞
-
+	
 	else if( Mode_Inf->Flying_flag == true)
 	{
 		switch (Mode_Inf->zt)
@@ -345,12 +348,13 @@ static void M37_Liu_MainFunc()
 						break;
 				}
 			  case 3: { //矩形飞行
-						static uint8_t i=0;
+						
 						if (Move_xyz(Fx[i], Fy[i],Fz[i], 25 ) == 2)
 						{
-								++i; // 5++ = 6
+								
 							  Mode_Inf->zt = 4; // 跳转到delay
 								Mode_Inf->delay_count=0;
+							  ++i; // 5++ = 6
 								if (i >= 6)
 								{
 										Mode_Inf->zt = 7; // 跳转到降落
@@ -382,7 +386,7 @@ static void M37_Liu_MainFunc()
 								Mode_Inf->delay_count++;
 								if( Move_xyz(Mode_Inf->target_x,Mode_Inf->target_y,Mode_Inf->target_z,25) == 2)
 								{
-									  if ( Mode_Inf->delay_count > 20 ) // 悬停2s = 2000ms = 20ms * 100
+									  if ( Mode_Inf->delay_count > 10 ) // 0.2s = 200ms = 20ms * 10
 										{
 												Mode_Inf->delay_count=0;
 												Mode_Inf->GoFlag = 0;  
@@ -423,13 +427,136 @@ static void M37_Liu_MainFunc()
 				}
 				
 			}//end --- switch
-	   maintain_hover();
+	  maintain_hover();
 	}//end --- else if( Mode_Inf->Flying_flag == true)
 }
 
 
 
 //以下为所需函数
+/*******************************************
+函数名：Move_xyz
+作用：xyz位置移动
+作者：Lcs
+输入参数：float x 目标端点x,float y 目标端点y.float z目标端点z, float v 移动速度
+输出参数：int8_t 返回精确程度
+封装等级：3
+*******************************************/
+static char Move_xyz(float x, float y, float z, float v)
+{
+		char fanhui = 0;
+		float delta_x = x - t265_x;
+		float delta_y = y - t265_y;
+		float delta_z = z - t265_z;
+		float distance = sqrt(delta_x * delta_x + delta_y * delta_y + delta_z * delta_z);
+		
+		UnLock_position();
+		UnLock_h();
+		Mode_Inf->target_x = x;
+		Mode_Inf->target_y = y;
+		Mode_Inf->target_z = z;
+
+		//这样Z轴调控很稳定
+		if (fabsf(delta_z) > 25){
+			now_volz = now_volz + sign_f(delta_z)*3;
+			if( fabsf(now_volz) > 30){	now_volz = sign_f(delta_z)*30;}
+		}
+		else{	now_volz = delta_z;	}
+		
+		
+		if (fabsf(delta_x) > 25){
+			now_volx = now_volx + sign_f(delta_x)*3;
+			if( fabsf(now_volx) > 25){	now_volx = sign_f(delta_x)*25;}
+		}
+		else{	now_volx = delta_x;	}
+		
+		if (fabsf(delta_y) > 25){
+			now_voly = now_voly + sign_f(delta_y)*3;
+			if( fabsf(now_voly) > 25){	now_voly = sign_f(delta_y)*25;}
+		}
+		else{	now_voly = delta_y;	}
+		
+		
+		
+//		if (distance > 55)
+//		{
+//			// 远距离移动，使用方向向量乘以速度
+//			float delta_vx = now_volx - v * delta_x / distance;
+//			float delta_vy = now_voly - v * delta_y / distance;
+//			float delta_vz = now_volz - v * delta_z / distance;
+
+//			// X方向速度控制
+////			if (fabsf(delta_vx) > 22)
+////			{
+////				now_volx = now_volx - 20 * sign_f(delta_vx) * fabs(delta_x / distance);
+////			}
+////			else
+//			{
+//				now_volx = v * delta_x / distance;
+//			}
+
+//			// Y方向速度控制
+////			if (fabsf(delta_vy) > 22)
+////			{
+////				now_voly = now_voly - 20 * sign_f(delta_vy) * fabs(delta_y / distance);
+////			}
+////			else
+//			{
+//				now_voly = v * delta_y / distance;
+//			}
+//		}
+//		else if (distance > 15)
+//		{
+//			// 中距离移动，使用比例控制
+//			float delta_vx = now_volx - delta_x;
+//			float delta_vy = now_voly - delta_y;
+//			float delta_vz = now_volz - delta_z;
+//			
+//			// X方向速度控制
+//			if (fabsf(delta_x) > 22)
+//			{
+//				//now_volx = now_volx - 16 * sign_f(delta_vx) * fabs(delta_x / distance);
+//				now_volx = v * delta_x / distance;
+//			}
+//			else
+//			{
+//				now_volx = delta_x;
+//			}
+//			
+//			// Y方向速度控制
+//			if (fabsf(delta_y) > 22)
+//			{
+//				//now_voly = now_voly - 16 * sign_f(delta_vy) * fabs(delta_y / distance);
+//				now_voly = v * delta_y / distance;
+//			}
+//			else
+//			{
+//				now_voly = delta_y;
+//			}			
+//		}
+
+	if( distance < 13)
+	{
+		// 到达目标位置
+		Mode_Inf->target_x = x;
+		Mode_Inf->target_y = y;
+		Mode_Inf->target_z = z;
+		Lock_position(Mode_Inf->target_x,  Mode_Inf->target_y);
+		Lock_h(Mode_Inf->target_z);
+		
+		now_volx = 0; now_voly = 0;
+		Position_Control_set_TargetVelocityXY(now_volx, now_voly);
+		fanhui = 2;
+		return fanhui;
+	}
+	
+	// 设置速度
+	Position_Control_set_TargetVelocityXY(now_volx, now_voly);
+	Position_Control_set_TargetVelocityZ(now_volz);
+	return fanhui;
+}
+
+
 void maintain_hover(){
 	static unsigned char cnt_time = 0;
 	cnt_time++;
@@ -449,23 +576,23 @@ void maintain_hover(){
 		now_volx = delta_x;
 		if (fabsf(delta_x) > STOP_DIST)
 		{
-				if (fabsf(now_volx) < 20)
+				if (fabsf(delta_x) < 15)
 				{
 						now_volx = delta_x;
 				}
 				else{
-					now_volx = sign_f(delta_x)*23;
+					now_volx = sign_f(delta_x)*15;
 				}
 		}
 		now_voly = delta_y;
 		if (fabsf(delta_y) > STOP_DIST)
 		{
-				if (fabsf(now_voly) < 20)
+				if (fabsf(delta_y) < 15)
 				{
 						now_voly = delta_y;
 				}
 				else{
-						now_voly = sign_f(delta_y)*23;
+						now_voly = sign_f(delta_y)*15;
 				}
 		}
 		if(landflag == 1){ now_volx = 0 ; now_voly = 0;	}
@@ -475,6 +602,8 @@ void maintain_hover(){
 	if (Mode_Inf->height_lock == true )
 	{
 		float delta_z = Mode_Inf->target_z - t265_z;
+		if( delta_z > 15 )  delta_z = 15;
+		else if( delta_z < -15  ) delta_z = -15;
 		now_volz = delta_z;
 		Position_Control_set_TargetVelocityZ(now_volz);
 	}
@@ -1196,142 +1325,6 @@ static int8_t Move_to_XYLine_smoth_coll(float x, float y, float v, float detail)
 	return smothend;
 }
 
-/*******************************************
-函数名：Move_xyz
-作用：xyz位置移动
-作者：Lcs
-输入参数：float x 目标端点x,float y 目标端点y.float z目标端点z, float v 移动速度
-输出参数：int8_t 返回精确程度
-封装等级：3
-*******************************************/
-static char Move_xyz(float x, float y, float z, float v)
-{
-		char fanhui = 0;
-		float delta_x = x - t265_x;
-		float delta_y = y - t265_y;
-		float delta_z = z - t265_z;
-		float distance = sqrt(delta_x * delta_x + delta_y * delta_y + delta_z * delta_z);
-		
-		UnLock_position();
-		UnLock_h();
-		Mode_Inf->target_x = x;
-		Mode_Inf->target_y = y;
-		Mode_Inf->target_z = z;
-		
-//		if (distance < 9)
-//		{
-//			fanhui = 1;
-//		}
-		//这样Z轴调控很稳定
-		if (fabsf(delta_z) > 25){
-			now_volz = now_volz + sign_f(delta_z)*3;
-			if( fabsf(now_volz) > 30){	now_volz = sign_f(delta_z)*30;			}
-		}
-		else{	now_volz = delta_z;		}
-		
-		
-		
-		if (distance > 55)
-		{
-			// 远距离移动，使用方向向量乘以速度
-			float delta_vx = now_volx - v * delta_x / distance;
-			float delta_vy = now_voly - v * delta_y / distance;
-			float delta_vz = now_volz - v * delta_z / distance;
-
-			// X方向速度控制
-			if (fabsf(delta_vx) > 22)
-			{
-				now_volx = now_volx - 20 * sign_f(delta_vx) * fabs(delta_x / distance);
-			}
-			else
-			{
-				now_volx = v * delta_x / distance;
-			}
-
-			// Y方向速度控制
-			if (fabsf(delta_vy) > 22)
-			{
-				now_voly = now_voly - 20 * sign_f(delta_vy) * fabs(delta_y / distance);
-			}
-			else
-			{
-				now_voly = v * delta_y / distance;
-			}
-			
-//			// Z方向速度控制
-//			if (fabsf(delta_vz) > 20)
-//			{
-//				now_volz = now_volz - 6 * sign_f(delta_vz) * fabs(delta_z / distance);
-//			}
-//			else
-//			{
-//				now_volz = v * delta_z / distance;
-//			}
-
-		}
-		else if (distance > 15)
-		{
-			// 中距离移动，使用比例控制
-			float delta_vx = now_volx - delta_x;
-			float delta_vy = now_voly - delta_y;
-			float delta_vz = now_volz - delta_z;
-			
-			// X方向速度控制
-			if (fabsf(delta_vx) > 22)
-			{
-				now_volx = now_volx - 20 * sign_f(delta_vx) * fabs(delta_x / distance);
-			}
-			else
-			{
-				now_volx = delta_x;
-			}
-			if (fabsf(now_volx) < 20)
-			{
-				now_volx = delta_x * 2;
-			}
-			
-			// Y方向速度控制
-			if (fabsf(delta_vy) > 22)
-			{
-				now_voly = now_voly - 20 * sign_f(delta_vy) * fabs(delta_y / distance);
-			}
-			else
-			{
-				now_voly = delta_y;
-			}
-			if (fabsf(now_voly) < 20)
-			{
-				now_voly = delta_y * 2;
-			}
-			
-//			// Z方向速度控制
-//			if (fabsf(delta_vz) > 10)
-//			{
-//				now_volz = now_volz - 6 * sign_f(delta_vz) * fabs(delta_z / distance);
-//			}
-//			else
-//			{
-//				now_volz = delta_z*1.5;
-//			}
-		}
-
-	else if( distance < 16)
-	{
-		// 到达目标位置
-		Mode_Inf->target_x = x;
-		Mode_Inf->target_y = y;
-		Mode_Inf->target_z = z;
-		Lock_position_same();
-		Lock_h_same();
-		fanhui = 2;
-		return fanhui;
-	}
-	
-	// 设置速度
-	Position_Control_set_TargetVelocityXY(now_volx, now_voly);
-	Position_Control_set_TargetVelocityZ(now_volz);
-	return fanhui;
-}
 
 /*******************************************
 函数名：Land
