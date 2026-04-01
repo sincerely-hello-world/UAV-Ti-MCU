@@ -7,12 +7,9 @@
 #include "pid.h"
 // #include "drv_I2C1.h"
 
-//            1   2   3   4   5   6   7     //只进行前5个点就降落
-float Fx[] = {  0,115,115,115,  0,  0,	0,};  //前向x+
-float Fy[] = {  0,  0,-60,-60,  0,  0,	0,};  //左边y+
-float Fz[] = {210,210,210,150,150,	0,	0,};  //上方z+  
 
-////            1   2   3   4   5   6   7     //只进行前5个点就降落
+
+////            0   1   2   3   4   5   6   7     //只进行前5个点就降落
 //int Fx[] = {  0,150,150,150,  0,  0,	0,};  //前向x+
 //int Fy[] = {  0,  0,-60,-60,  0,  0,	0,};  //左边y+
 //int Fz[] = {150,150,150,100,100,	0,	0,};  //上方z+  
@@ -36,6 +33,7 @@ float mark_zt;
 
 // extern float aim_x;
 // extern float aim_y;
+
 extern int shu_taskid;
 
 extern bool qifeixuke;
@@ -267,20 +265,37 @@ extern bool go_back; // 是否返回巡线状态
 
 const float STOP_DIST = 6.0f;       // 完全停止的距离阈值
 
-
-//            1   2   3   4   5   6   7 
-//int Fx[] = {  0,150,150,150,  0,  0,0,};
-//int Fy[] = {  0,  0,-60,-60,  0,  0,0,};
-//int Fz[] = {150,150,150,100,100,  0,0,};
+ 
 
 int cntt = 0;
 char ccc[2];
 //vector3_float current_pos;
 
+////              0   1   2   3   4   5   6   7     //只进行前5个点就降落
+//float Fx[] = {  0,115,115,115,  0,  0,	0,};  //前向x+
+//float Fy[] = {  0,  0,-60,-60,  0,  0,	0,};  //左边y+
+//float Fz[] = {205,205,205,150,150,	0,	0,};  //上方z+  
+
+////              0   1   2    3     4   5   6   7     //只进行前5个点就降落 //备份
+//float Fx[] = {  0,  0, 13,  25,    0,  0,	0,};  //前向x+
+//float Fy[] = {  0,  0,  0,   0,    0,  0,	0,};  //左边y+
+//float Fz[] = {150,205,205, 205,   80,	 0,	0,};  //上方z+  
+
+//              0   1   2    3     4   5   6   7     //只进行前5个点就降落 //备份
+float Fx[] = {  0,  0,  0,   0,    0,  0,	0,};  //前向x+
+float Fy[] = {  0,  0,  0,   0,    0,  0,	0,};  //左边y+
+float Fz[] = {150,190,190,  80,   80,	 0,	0,};  //上方z+  
+
+
 static void M37_Liu_MainFunc()
 {
 	static uint8_t i=0;
 	//current_pos = get_Position();
+//	{ //测试桨叶旋转方向
+//			Control_Enable_All();
+//			PWM_PulseWidthSet_All(10000+1200);
+//	}
+
 	++cntt;
 	if(cntt >= 25)
 	{		
@@ -316,7 +331,7 @@ static void M37_Liu_MainFunc()
 	
 	if(gofly == 1) { Mode_Inf->zt = 5; }
 	
-	if(t265_z > 235)  { landflag = 1; }  //安全保险
+	if(t265_z > 200)  { landflag = 1; }  //安全保险
 	if(landflag == 1 || t265_z > 235){ Land(50,1);	Mode_Inf->Flying_flag =false; Mode_Inf->zt=8; }//紧急降落后，不允许再次起飞
 	
 	else if( Mode_Inf->Flying_flag == true)
@@ -349,13 +364,13 @@ static void M37_Liu_MainFunc()
 				}
 			  case 3: { //矩形飞行
 						
-						if (Move_xyz(Fx[i], Fy[i],Fz[i], 25 ) == 2)
+						if (Move_xyz(Fx[i], Fy[i],Fz[i], 20 ) == 2)
 						{
 								
 							  Mode_Inf->zt = 4; // 跳转到delay
 								Mode_Inf->delay_count=0;
-							  ++i; // 5++ = 6
-								if (i >= 6)
+							  ++i; // 4++ = 5
+								if (i >= 4)
 								{
 										Mode_Inf->zt = 7; // 跳转到降落
 								}
@@ -386,7 +401,7 @@ static void M37_Liu_MainFunc()
 								Mode_Inf->delay_count++;
 								if( Move_xyz(Mode_Inf->target_x,Mode_Inf->target_y,Mode_Inf->target_z,25) == 2)
 								{
-									  if ( Mode_Inf->delay_count > 10 ) // 0.2s = 200ms = 20ms * 10
+									  if ( Mode_Inf->delay_count > 20 ) // 0.2s = 200ms = 20ms * 10
 										{
 												Mode_Inf->delay_count=0;
 												Mode_Inf->GoFlag = 0;  
@@ -422,6 +437,7 @@ static void M37_Liu_MainFunc()
 					{
 						 Control_Disable_All();
 						 Mode_Inf->Flying_flag = 0;
+							landflag = 1;
 					}
 					break;
 				}
@@ -457,22 +473,22 @@ static char Move_xyz(float x, float y, float z, float v)
 		Mode_Inf->target_z = z;
 
 		//这样Z轴调控很稳定
-		if (fabsf(delta_z) > 25){
+		if (fabsf(delta_z) > v){
 			now_volz = now_volz + sign_f(delta_z)*3;
-			if( fabsf(now_volz) > 30){	now_volz = sign_f(delta_z)*30;}
+			if( fabsf(now_volz) > v){	now_volz = sign_f(delta_z)*v;}
 		}
 		else{	now_volz = delta_z;	}
 		
 		
-		if (fabsf(delta_x) > 25){
+		if (fabsf(delta_x) > v){
 			now_volx = now_volx + sign_f(delta_x)*3;
-			if( fabsf(now_volx) > 25){	now_volx = sign_f(delta_x)*25;}
+			if( fabsf(now_volx) > v){	now_volx = sign_f(delta_x)*v;}
 		}
 		else{	now_volx = delta_x;	}
 		
-		if (fabsf(delta_y) > 25){
+		if (fabsf(delta_y) > v){
 			now_voly = now_voly + sign_f(delta_y)*3;
-			if( fabsf(now_voly) > 25){	now_voly = sign_f(delta_y)*25;}
+			if( fabsf(now_voly) > v){	now_voly = sign_f(delta_y)*v;}
 		}
 		else{	now_voly = delta_y;	}
 		
@@ -535,7 +551,7 @@ static char Move_xyz(float x, float y, float z, float v)
 //			}			
 //		}
 
-	if( distance < 13)
+	if( distance < 10)
 	{
 		// 到达目标位置
 		Mode_Inf->target_x = x;

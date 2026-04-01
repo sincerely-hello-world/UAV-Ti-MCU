@@ -22,20 +22,20 @@
 #define MIN_PWM_WIDTH 10000
 #define MAX_PWM_WIDTH 20000
 
-//void PWM_PulseWidthSet_All(unsigned int width)//所有通道设置相同输出 
-//{
-//		if(width < MIN_PWM_WIDTH) {width = MIN_PWM_WIDTH;}
-//		else if(width > MAX_PWM_WIDTH) {width = MAX_PWM_WIDTH;}
-//		
-//		PWMPulseWidthSet(PWM0_BASE,PWM_OUT_1,width);//PB7
-//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_0,width);//PB6
-//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_7,width);//PD1
-//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_6,width);//PD0
-//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_5,width);//PE5
-//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_4,width);//PE4
-//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_2,width);//PB4
-//    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_3,width);//PB5
-//}
+void PWM_PulseWidthSet_All(unsigned int width)//所有通道设置相同输出 
+{
+		if(width < MIN_PWM_WIDTH) {width = MIN_PWM_WIDTH;}
+		else if(width > MAX_PWM_WIDTH) {width = MAX_PWM_WIDTH;}
+		
+		PWMPulseWidthSet(PWM0_BASE,PWM_OUT_1,width);//PB7
+    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_0,width);//PB6
+    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_7,width);//PD1
+    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_6,width);//PD0
+    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_5,width);//PE5
+    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_4,width);//PE4
+    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_2,width);//PB4
+    PWMPulseWidthSet(PWM0_BASE,PWM_OUT_3,width);//PB5
+}
 
 //void PWM_PulseWidthReduce_All(unsigned int value) //所有通道减少相同输出
 //{
