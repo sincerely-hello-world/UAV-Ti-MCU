@@ -220,8 +220,8 @@ extern int listen_ready;
 void SetGood(void);
 extern int taskid;
 
-#define TAKEOFF_HEIGHT 100.0f
-#define HEIGHT 100.0f
+
+#define HEIGHT 70.0f
 
 #define MAP_SPEED 50.0f
 #define FIRE_SPEED 30.0f
@@ -290,10 +290,10 @@ float Fz[] = {150,190,190,  80,   80,	 0,	0,};  //上方z+
 static void M37_Liu_MainFunc()
 {
 	static uint8_t i=0;
-	//current_pos = get_Position();
+//current_pos = get_Position();
 //	{ //测试桨叶旋转方向
 //			Control_Enable_All();
-//			PWM_PulseWidthSet_All(10000+1200);
+//			PWM_PulseWidthSet_All(10000+500);
 //	}
 
 	++cntt;
@@ -303,9 +303,9 @@ static void M37_Liu_MainFunc()
 			ccc[0] = Mode_Inf->zt +'0';
 	}
 	
-	if (Mode_Inf->Flying_flag == false)  // 起飞确认
+	if (Mode_Inf->Flying_flag == false &&  get_is_inFlight() == false)  // 起飞状态确认
 	{
-			if (fabs(t265_x-0) < 10 && fabs(t265_y-0) < 10 && t265_z < 10 && T265_is_ready == 1 && takeoffflag == 1) // 首次起飞许可
+			if (fabs(t265_x-0) < 10 && fabs(t265_y-0) < 10 && t265_z < 10 && T265_is_ready == 1 && takeoffflag == 1 ) // 首次起飞许可
 			{
 				Mode_Inf->delay_count++;
 				if (Mode_Inf->delay_count < 150)
@@ -322,17 +322,25 @@ static void M37_Liu_MainFunc()
 					Control_Enable_All();
 				}
 			}//end of 首次起飞许可
-//			else if (T265_is_ready == 1 && takeoffflag == 1  && get_Motor_status() == 0 && landflag == 0){// 再飞许可
+//			else if (T265_is_ready == 1 && takeoffflag == 1 && landflag == 0){// 再飞许可
 //					Mode_Inf->Flying_flag = true;
 //					takeoffflag = 0; 
 //					Mode_Inf->zt = 0;
 //			}//end if 再飞许可
 	}
 	
-	if(gofly == 1) { Mode_Inf->zt = 5; }
+	if(gofly == 1) { Mode_Inf->zt = 5; } //模式切换
+	
+	if(normalLandFlag == 1 ){ //模式切换
+		normalLandFlag = 0;
+		Mode_Inf->zt = 7;  
+		Lock_position(Mode_Inf->target_x, Mode_Inf->target_y);
+		Mode_Inf->delay_count=0;
+	}
 	
 	if(t265_z > 200)  { landflag = 1; }  //安全保险
-	if(landflag == 1 || t265_z > 235){ Land(50,1);	Mode_Inf->Flying_flag =false; Mode_Inf->zt=8; }//紧急降落后，不允许再次起飞
+	if(landflag == 1 || t265_z > 235){ Land(50,1);	Mode_Inf->Flying_flag =false; }//紧急降落后，不允许再次起飞
+	//else if(normalLandFlag == 1 ){ Land(40,0);	Mode_Inf->Flying_flag =false;  }// 正常降落，瞄准标定位置降落
 	
 	else if( Mode_Inf->Flying_flag == true)
 	{
@@ -342,6 +350,7 @@ static void M37_Liu_MainFunc()
 				{
 					//Takeoff_Initial(TAKEOFF_HEIGHT);
 					Lock_position(t265_x,  t265_y); //标定起飞后平面位置！！！ //首次起飞 和 再起飞都需要标定
+					UnLock_h();	
 					set_inFlight_true(); 
 					Control_Enable_All(); 					
 					Mode_Inf->zt=1;
@@ -349,48 +358,49 @@ static void M37_Liu_MainFunc()
 				}
 				case 1: //1 起飞动作
 				{
-					if(1 <= Takeoff_h(HEIGHT, 40) ) { Mode_Inf->zt = 2;}
+					if(1 <= Takeoff_h(HEIGHT, 40) ) { Mode_Inf->zt = 5;}
 					break;
 				}
-				case 2: //2 悬停2s 等待跳转
-				{
-						Mode_Inf->delay_count++;
-						if (100 < Mode_Inf->delay_count) // 悬停2s = 2000ms = 20ms * 100
-						{
-								Mode_Inf->delay_count = 0; // 清零计数
-								Mode_Inf->zt = 3;          // 跳转到 任务执行状态
-						}
-						break;
-				}
-			  case 3: { //矩形飞行
-						
-						if (Move_xyz(Fx[i], Fy[i],Fz[i], 20 ) == 2)
-						{
-								
-							  Mode_Inf->zt = 4; // 跳转到delay
-								Mode_Inf->delay_count=0;
-							  ++i; // 4++ = 5
-								if (i >= 4)
-								{
-										Mode_Inf->zt = 7; // 跳转到降落
-								}
-						}
-						break;
-				 }
-				case 4:{	
-						// 悬停2s  
-						Mode_Inf->delay_count++;
-						if (100 < Mode_Inf->delay_count) // 悬停2s = 2000ms = 20ms * 1000
-						{
-								Mode_Inf->delay_count = 0; // 清零计数
-								Mode_Inf->zt = 3;          // 跳转到降落
-						}
-						break;
-				}
+//				case 2: //2 悬停2s 等待跳转
+//				{
+//						Mode_Inf->delay_count++;
+//						if (100 < Mode_Inf->delay_count) // 悬停2s = 2000ms = 20ms * 100
+//						{
+//								Mode_Inf->delay_count = 0; // 清零计数
+//								Mode_Inf->zt = 3;          // 跳转到 任务执行状态
+//						}
+//						break;
+//				}
+//			  case 3: { //矩形飞行
+//						
+//						if (Move_xyz(Fx[i], Fy[i],Fz[i], 20 ) == 2)
+//						{
+//								
+//							  Mode_Inf->zt = 4; // 跳转到delay
+//								Mode_Inf->delay_count=0;
+//							  ++i; // 4++ = 5
+//								if (i >= 4)
+//								{
+//										Mode_Inf->zt = 7; // 跳转到降落
+//								}
+//						}
+//						break;
+//				 }
+//				case 4:{	
+//						// 悬停2s  
+//						Mode_Inf->delay_count++;
+//						if (100 < Mode_Inf->delay_count) // 悬停2s = 2000ms = 20ms * 1000
+//						{
+//								Mode_Inf->delay_count = 0; // 清零计数
+//								Mode_Inf->zt = 3;          // 跳转到降落
+//						}
+//						break;
+//				}
 				case 5:              
 				{
 						if(gofly == 1)
 						{
+							  Uart2_Send("Gdoing\n",7);
 								Mode_Inf->target_x = detect_x;
 								Mode_Inf->target_y = detect_y;
 								Mode_Inf->target_z = detect_z;
@@ -401,21 +411,21 @@ static void M37_Liu_MainFunc()
 								Mode_Inf->delay_count++;
 								if( Move_xyz(Mode_Inf->target_x,Mode_Inf->target_y,Mode_Inf->target_z,25) == 2)
 								{
-									  if ( Mode_Inf->delay_count > 20 ) // 0.2s = 200ms = 20ms * 10
+									  if ( Mode_Inf->delay_count > 5 ) // 0.2s = 200ms = 20ms * 3
 										{
 												Mode_Inf->delay_count=0;
 												Mode_Inf->GoFlag = 0;  
 												Uart2_Send("Gdone\n",6);
 										}
 								}
-								else if ( Mode_Inf->delay_count > 20 ) // 悬停2s = 2000ms = 20ms * 100
+								else if ( Mode_Inf->delay_count > 5 ) // 0.1s = 2000ms = 20ms * 3
 								{
 										Mode_Inf->delay_count=0;
 										Uart2_Send("Gdoing\n",7);
 								}
 						}
 						break;
-				}
+				}//end of case5
 				case 6:                     //飞回原点
 				{
 					if(Move_xyz(0,0,50,30) == 2 ){
@@ -425,7 +435,7 @@ static void M37_Liu_MainFunc()
 				}
 				case 7:
 				{
-					if(Land(40,0) == 1){
+					if(Land(45,0) == 1){
 						Mode_Inf->zt=8;
 					}
 					break;
@@ -436,8 +446,9 @@ static void M37_Liu_MainFunc()
 					if( get_is_inFlight() == false )
 					{
 						 Control_Disable_All();
-						 Mode_Inf->Flying_flag = 0;
-							landflag = 1;
+						 Mode_Inf->Flying_flag =false;
+						 landflag = 1;//降落后不许再次起飞
+						 Uart2_Send("Gdone\n",6);
 					}
 					break;
 				}
@@ -551,7 +562,7 @@ static char Move_xyz(float x, float y, float z, float v)
 //			}			
 //		}
 
-	if( distance < 10)
+	if( distance < 7)
 	{
 		// 到达目标位置
 		Mode_Inf->target_x = x;
@@ -592,8 +603,7 @@ void maintain_hover(){
 		now_volx = delta_x;
 		if (fabsf(delta_x) > STOP_DIST)
 		{
-				if (fabsf(delta_x) < 15)
-				{
+				if (fabsf(delta_x) < 15){
 						now_volx = delta_x;
 				}
 				else{
@@ -603,8 +613,7 @@ void maintain_hover(){
 		now_voly = delta_y;
 		if (fabsf(delta_y) > STOP_DIST)
 		{
-				if (fabsf(delta_y) < 15)
-				{
+				if (fabsf(delta_y) < 15){
 						now_voly = delta_y;
 				}
 				else{
@@ -618,9 +627,17 @@ void maintain_hover(){
 	if (Mode_Inf->height_lock == true )
 	{
 		float delta_z = Mode_Inf->target_z - t265_z;
-		if( delta_z > 15 )  delta_z = 15;
-		else if( delta_z < -15  ) delta_z = -15;
+		
 		now_volz = delta_z;
+		if (fabsf(delta_z) > STOP_DIST)
+		{
+				if (fabsf(delta_z) < 15){
+						now_volz = delta_z;
+				}
+				else{
+						now_volz = sign_f(delta_z)*15;
+				}
+		}
 		Position_Control_set_TargetVelocityZ(now_volz);
 	}
 }
@@ -690,7 +707,6 @@ static bool Move_to_X(float x, float v, uint8_t clear)
         } else {
             now_volx = target_speed;
         }
-        
         Position_Control_set_TargetVelocityXY(now_volx, now_voly);
     }
     return false;
@@ -1971,13 +1987,7 @@ static bool Takeoff_h(float height, int v)
 			float position_base = 10;                                 //初始响应高度（加速高度的判决，由飞机底盘决定）
 	    int vol_limit_takeoff = v;                                  //起飞加速度限制，由飞机重量决定
 
-//	    Mode_Inf->target_x = 0;
-//	    Mode_Inf->target_y = 0;
-//			Lock_position(Mode_Inf->target_x,  Mode_Inf->target_y);
-	
-//	    now_volx = (Mode_Inf->target_x - t265_x) * 1.5;
-//	    now_voly = (Mode_Inf->target_y - t265_y) * 1.5;
-	
+			UnLock_h();
       if(t265_z <= position_base){
 				now_volz = 60; 
 		    Position_Control_set_TargetVelocityZ(now_volz);

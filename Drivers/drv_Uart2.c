@@ -157,8 +157,7 @@ static void UART2_Handler()
 
 
 
-static int listen_long = 0;
-static int listen_lock = 1;
+
 
 static int flyagain_lock = 1;
 static int flyback_lock =1;
@@ -218,14 +217,19 @@ float detect_x=0,detect_y=0,detect_z=0;
 // 2B 30 35 35 30 30      +02490 024.90
 // 2B 30 35 35 30 30      +00089 000.89
 #define GoFlag 0x47
-#define TakeoffFlag 0x52
-#define LandFlag 0x53
-#define HoverFlag 0x54
+#define TakeoffFlag 0x52 //R
+#define LandFlag 0x53 //S
+#define TurnFlag 0x54 //T
+#define NormalLandFlag 0x55 //U
+
 unsigned char landflag=0;
-//unsigned char hoverflag=0;
+unsigned char normalLandFlag=0;
 unsigned char takeoffflag=0;
 
 unsigned char  cnt_2=0;
+
+static int listen_long = 0;
+static int listen_lock = 1;
 static void UART2_Listen(char data)
 {
     think_listen = data;
@@ -254,6 +258,7 @@ static void UART2_Listen(char data)
 						Uart2_Send(task_info,18);
             listen_long = 0;
             listen_lock = 1;
+					  Uart2_Send("Gdoing\n",7);
         }
     }
 	
@@ -265,13 +270,14 @@ static void UART2_Listen(char data)
 	
 	else if(think_listen == TakeoffFlag){
 		  takeoffflag =1;
-			Uart2_Send("Takeoffok",9);
+			Uart2_Send("Takeoffok\n",strlen("Takeoffok\n"));
 	}
 	else if(think_listen == LandFlag){ // MCU uart2 - Linux uart4
 			landflag =1;
-			Uart2_Send("Landok",6);
+			Uart2_Send("Landok",strlen("Landok\n"));
 	}
-//	else if(think_listen == HoverFlag){ // MCU uart2 - Linux uart4
-//			hoverflag =1;
-//	}
+	else if(think_listen == NormalLandFlag){ // MCU uart2 - Linux uart4
+			normalLandFlag =1;
+			Uart2_Send("normalLandok",strlen("normalLandok"));
+	}
 }

@@ -14,7 +14,7 @@ extern float help_fire[6];
 
 //-------------
 extern unsigned char landflag;
-extern unsigned char hoverflag;
+extern unsigned char normalLandFlag;
 extern unsigned char takeoffflag;
 
 extern int gofly;
