@@ -293,7 +293,7 @@ static void M37_Liu_MainFunc()
 //current_pos = get_Position();
 //	{ //测试桨叶旋转方向
 //			Control_Enable_All();
-//			PWM_PulseWidthSet_All(10000+500);
+//			PWM_PulseWidthSet_All(10000+123);
 //	}
 
 	++cntt;
@@ -318,29 +318,35 @@ static void M37_Liu_MainFunc()
 					Led_setSignal(LED_signal_null);
 					Mode_Inf->Flying_flag = true;
 					takeoffflag = 0; 
+					landflag = 0;
 					Mode_Inf->zt = 0;
 					Control_Enable_All();
 				}
 			}//end of 首次起飞许可
-//			else if (T265_is_ready == 1 && takeoffflag == 1 && landflag == 0){// 再飞许可
-//					Mode_Inf->Flying_flag = true;
-//					takeoffflag = 0; 
-//					Mode_Inf->zt = 0;
-//			}//end if 再飞许可
+			else if (T265_is_ready == 1 && takeoffflag == 1 && landflag == 0){// 再飞许可
+					Mode_Inf->delay_count = 0; // 清零计数
+					Led_setSignal(LED_signal_null);
+					Mode_Inf->Flying_flag = true;
+					takeoffflag = 0; 
+					landflag = 0;
+					Mode_Inf->zt = 0;
+					Control_Enable_All();
+			}//end if 再飞许可
 	}
 	
-	if(gofly == 1) { Mode_Inf->zt = 5; } //模式切换
+	if(gofly == 1) { gofly = 0; Mode_Inf->zt = 5; } //模式切换
 	
-	if(normalLandFlag == 1 ){ //模式切换
+	if(normalLandFlag == 1 ){ //模式切换  // 正常降落，瞄准上一次标定位置降落
 		normalLandFlag = 0;
 		Mode_Inf->zt = 7;  
 		Lock_position(Mode_Inf->target_x, Mode_Inf->target_y);
 		Mode_Inf->delay_count=0;
 	}
 	
-	if(t265_z > 200)  { landflag = 1; }  //安全保险
-	if(landflag == 1 || t265_z > 235){ Land(50,1);	Mode_Inf->Flying_flag =false; }//紧急降落后，不允许再次起飞
-	//else if(normalLandFlag == 1 ){ Land(40,0);	Mode_Inf->Flying_flag =false;  }// 正常降落，瞄准标定位置降落
+	if(t265_z > 200)  { landflag = 1; }  //安全保险： 过高时触发紧急降落
+	
+	
+	if(landflag == 1 || t265_z > 225){ Land(50,1);	Mode_Inf->Flying_flag =false; landflag = 1;}//紧急降落后，不允许再次起飞
 	
 	else if( Mode_Inf->Flying_flag == true)
 	{
@@ -445,9 +451,9 @@ static void M37_Liu_MainFunc()
 					//等待降落完成
 					if( get_is_inFlight() == false )
 					{
-						 Control_Disable_All();
 						 Mode_Inf->Flying_flag =false;
-						 landflag = 1;//降落后不许再次起飞
+						 Control_Disable_All();
+						 //landflag = 1;//降落后不许再次起飞
 						 Uart2_Send("Gdone\n",6);
 					}
 					break;

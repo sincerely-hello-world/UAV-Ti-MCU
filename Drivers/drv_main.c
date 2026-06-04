@@ -18,18 +18,19 @@
 #include "drv_Laser.h"
 #include "MavlinkRCProcess.h"
 #include "drv_I2C1.h"
+ 
 
 void init_Drivers()
 {
     init_drv_uDMA();
     init_drv_LED();
-//    init_drv_OLED();
+//  init_drv_OLED();
     init_drv_PWMOut();
 
 		PWM_PullUpAll();
-		delay( 5.0f );			
+		delay( 6.3f );
 		PWM_PullDownAll();//Ð£×¼¿ªÆô
- 
+		
     
     init_drv_Sensors();
     init_drv_USB();
@@ -49,5 +50,6 @@ void init_Drivers()
 		//init_drv_ADC();
 		
 		init_drv_Uart7();
+		//Disable_Motor();
      
 }
