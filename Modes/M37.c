@@ -266,9 +266,7 @@ extern bool go_back; // 是否返回巡线状态
 const float STOP_DIST = 6.0f;       // 完全停止的距离阈值
 
  
-
-int cntt = 0;
-char ccc[2];
+ 
 //vector3_float current_pos;
 
 ////              0   1   2   3   4   5   6   7     //只进行前5个点就降落
@@ -296,15 +294,10 @@ static void M37_Liu_MainFunc()
 //			PWM_PulseWidthSet_All(10000+123);
 //	}
 
-	++cntt;
-	if(cntt >= 25)
-	{		
-			cntt=0;
-			ccc[0] = Mode_Inf->zt +'0';
-	}
 	
 	if (Mode_Inf->Flying_flag == false &&  get_is_inFlight() == false)  // 起飞状态确认
 	{
+			Control_Disable_All();//没起飞前，禁止输出
 			if (fabs(t265_x-0) < 10 && fabs(t265_y-0) < 10 && t265_z < 10 && T265_is_ready == 1 && takeoffflag == 1 ) // 首次起飞许可
 			{
 				Mode_Inf->delay_count++;
